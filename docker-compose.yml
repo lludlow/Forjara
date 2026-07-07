@@ -1,0 +1,47 @@
+# One workspace container per project, each its own tailnet machine via
+# tsdproxy. New project = copy a workspace block, change 3 lines, `up -d`.
+
+x-workspace: &workspace
+  image: ghcr.io/lludlow/aidev:latest
+  # build: .    # uncomment to build locally instead of pulling
+  restart: unless-stopped
+  environment:
+    PUID: "1000"
+    PGID: "1000"
+    TZ: America/Detroit
+    DEFAULT_WORKSPACE: /workspace
+    # auth is the tailnet — leave PASSWORD/HASHED_PASSWORD unset
+
+services:
+  tsdproxy:
+    image: almeidapaulopt/tsdproxy:2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - tsdproxy-data:/data
+      - ./config:/config        # config/tsdproxy.yaml holds the auth key
+    restart: unless-stopped
+
+  submind:
+    <<: *workspace
+    labels:
+      tsdproxy.enable: "true"
+      tsdproxy.name: "submind"          # -> https://submind.<tailnet>.ts.net
+      tsdproxy.container_port: "8443"
+    volumes:
+      - submind-config:/config
+      - ${PROJECTS_DIR:-./projects}/submind:/workspace
+
+  atlas:
+    <<: *workspace
+    labels:
+      tsdproxy.enable: "true"
+      tsdproxy.name: "atlas"            # -> https://atlas.<tailnet>.ts.net
+      tsdproxy.container_port: "8443"
+    volumes:
+      - atlas-config:/config
+      - ${PROJECTS_DIR:-./projects}/atlas:/workspace
+
+volumes:
+  tsdproxy-data:
+  submind-config:
+  atlas-config:

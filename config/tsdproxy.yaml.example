@@ -1,0 +1,13 @@
+# Copy to config/tsdproxy.yaml and paste a reusable, tagged auth key.
+# Schema reference: https://almeidapaulopt.github.io/tsdproxy/docs/
+defaultproxyprovider: default
+
+docker:
+  local:
+    host: unix:///var/run/docker.sock
+    defaultproxyprovider: default
+
+tailscale:
+  providers:
+    default:
+      authkey: "tskey-auth-REPLACE-ME"   # tag with tag:aidev in the admin console
