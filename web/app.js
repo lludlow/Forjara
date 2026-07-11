@@ -127,7 +127,13 @@ function connectSurface(id, surface) {
 function bindInput(surface) {
   surface.canvas.addEventListener('keydown', event => {
     if (surface.socket?.readyState !== WebSocket.OPEN) return;
-    if ((event.metaKey || event.ctrlKey) && ['c', 'v'].includes(event.key.toLowerCase()) && event.shiftKey) return;
+    const copy = event.key.toLowerCase() === 'c' && (event.metaKey || event.ctrlKey && event.shiftKey);
+    if (copy && surface.terminal.copySelection()) {
+      event.preventDefault();
+      return;
+    }
+    if (event.key.toLowerCase() === 'v' && (event.metaKey || event.ctrlKey && event.shiftKey)) return;
+    surface.terminal.clearSelection();
     const data = surface.ghostty.encodeKey(event);
     if (!data.length) return;
     event.preventDefault();
