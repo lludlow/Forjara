@@ -1,52 +1,54 @@
-const terminal = document.querySelector('#terminal');
+import { GhosttyTerminal } from './ghostty.js';
+import { CanvasTerminal } from './terminal.js';
+
+const canvas = document.querySelector('#terminal');
 const status = document.querySelector('#status');
-const decoder = new TextDecoder();
+const ghostty = await GhosttyTerminal.create('/ghostty-vt.wasm', 120, 40);
+const terminal = new CanvasTerminal(canvas, ghostty);
 let socket;
+let retry;
 
 function connect() {
+  clearTimeout(retry);
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   socket = new WebSocket(`${protocol}//${location.host}/api/terminal`);
   socket.binaryType = 'arraybuffer';
   socket.onopen = () => {
     status.textContent = 'connected';
-    resize();
-    terminal.focus();
+    terminal.onResize = ({ cols, rows }) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'resize', cols, rows }));
+      }
+    };
+    terminal.fit();
+    canvas.focus();
   };
-  socket.onmessage = (event) => {
-    terminal.textContent += typeof event.data === 'string' ? event.data : decoder.decode(event.data);
-    terminal.scrollTop = terminal.scrollHeight;
+  socket.onmessage = ({ data }) => {
+    if (typeof data === 'string') return;
+    ghostty.write(new Uint8Array(data));
+    terminal.render();
   };
   socket.onclose = () => {
     status.textContent = 'disconnected';
-    setTimeout(connect, 1000);
+    retry = setTimeout(connect, 1000);
   };
 }
 
-function resize() {
+canvas.addEventListener('keydown', (event) => {
   if (socket?.readyState !== WebSocket.OPEN) return;
-  const style = getComputedStyle(terminal);
-  const probe = document.createElement('span');
-  probe.textContent = 'M';
-  probe.style.font = style.font;
-  probe.style.visibility = 'hidden';
-  document.body.append(probe);
-  const rect = probe.getBoundingClientRect();
-  probe.remove();
-  socket.send(JSON.stringify({
-    type: 'resize',
-    cols: Math.max(2, Math.floor(terminal.clientWidth / rect.width)),
-    rows: Math.max(1, Math.floor(terminal.clientHeight / rect.height)),
-  }));
-}
-
-terminal.addEventListener('keydown', (event) => {
-  if (socket?.readyState !== WebSocket.OPEN) return;
-  const keys = { Enter: '\r', Backspace: '\x7f', Tab: '\t', Escape: '\x1b', ArrowUp: '\x1b[A', ArrowDown: '\x1b[B', ArrowRight: '\x1b[C', ArrowLeft: '\x1b[D' };
-  const value = keys[event.key] ?? (event.key.length === 1 ? event.key : '');
-  if (!value) return;
+  if ((event.metaKey || event.ctrlKey) && ['c', 'v'].includes(event.key.toLowerCase()) && event.shiftKey) return;
+  const data = ghostty.encodeKey(event);
+  if (!data.length) return;
   event.preventDefault();
-  socket.send(new TextEncoder().encode(event.ctrlKey && value.length === 1 ? String.fromCharCode(value.toUpperCase().charCodeAt(0) - 64) : value));
+  socket.send(data);
 });
 
-new ResizeObserver(resize).observe(terminal);
+canvas.addEventListener('paste', (event) => {
+  const text = event.clipboardData?.getData('text');
+  if (!text || socket?.readyState !== WebSocket.OPEN) return;
+  event.preventDefault();
+  socket.send(new TextEncoder().encode(text));
+});
+
+new ResizeObserver(() => terminal.fit()).observe(canvas);
 connect();
