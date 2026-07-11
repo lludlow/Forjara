@@ -6,11 +6,7 @@ x-workspace: &workspace
   # build: .    # uncomment to build locally instead of pulling
   restart: unless-stopped
   environment:
-    PUID: "1000"
-    PGID: "1000"
     TZ: America/Detroit
-    DEFAULT_WORKSPACE: /workspace
-    # auth is the tailnet — leave PASSWORD/HASHED_PASSWORD unset
 
 services:
   tsdproxy:

@@ -17,7 +17,7 @@ an image.
 
 | Choice | Pick | Rejected |
 |---|---|---|
-| IDE | code-server (lsio image base) | webtop/Kasm — pixel stream, heavier; binhex — fine but nonstandard base, no tooling anyway |
+| IDE | official code-server release on Node slim | webtop/Kasm — pixel stream, heavier; binhex — fine but nonstandard base, no tooling anyway |
 | Terminals | tmux inside code-server's integrated terminal | ttyd (tsdproxy is one-port-per-container; add back if a dedicated phone terminal is missed), wetty (needs sshd), sshx (relays via sshx.io) |
 | Remote access | tsdproxy (one daemon, per-container tailnet hostname via labels) | N tailscale sidecars — 2 containers + state dir per project; host tailscale — one hostname only; reverse-proxy+certbot — why |
 | CLIs | baked into image via `npm i -g` | DOCKER_MODS install-at-boot — slow, non-persistent |
@@ -36,20 +36,22 @@ Forjara/
 ## Dockerfile
 
 ```dockerfile
-FROM lscr.io/linuxserver/code-server:latest
+FROM node:22-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      tmux ripgrep jq less openssh-client \
+      ca-certificates curl git jq less openssh-client ripgrep tini tmux \
  && rm -rf /var/lib/apt/lists/*
 
-# Node 22 + the agent CLIs
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
- && apt-get install -y nodejs \
+# code-server release + agent CLIs
+ARG CODE_SERVER_VERSION=4.121.0
+ARG TARGETARCH
+RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-${TARGETARCH}.tar.gz" \
+      | tar -xz -C /opt \
+ && ln -s "/opt/code-server-${CODE_SERVER_VERSION}-linux-${TARGETARCH}/bin/code-server" /usr/local/bin/code-server \
  && npm install -g \
       @anthropic-ai/claude-code \
       @openai/codex \
-      opencode-ai \
- && rm -rf /var/lib/apt/lists/*
+      opencode-ai
 
 # Google agent is pluggable: Gemini CLI stopped serving free/AI Pro/Ultra
 # users 2026-06-18; consumers get Antigravity CLI, enterprise/API-key
@@ -60,9 +62,10 @@ RUN /tmp/install-google-agent.sh "$GOOGLE_AGENT"
 ```
 
 Notes:
-- lsio base gives PUID/PGID, s6 services, `/config` persistence for free.
-- CLI auth state (`~/.claude`, `~/.codex`, `~/.gemini`) lives under `/config`
-  (abc's home), so logins survive container recreation. Log in once via the
+- The image runs as Node's fixed UID 1000 user; the project files should be
+  writable by UID 1000 (the compose default).
+- CLI auth state (`~/.claude`, `~/.codex`, `~/.gemini`) lives under `/config`,
+  so logins survive container recreation. Log in once via the
   code-server terminal; OAuth device-code flows work fine headless.
 - `xbuild` (or whatever else): add to the npm/apt line.
 
@@ -78,11 +81,7 @@ x-workspace: &workspace
   build: .
   restart: unless-stopped
   environment: &workspace-env
-    PUID: "1000"
-    PGID: "1000"
     TZ: America/Detroit
-    DEFAULT_WORKSPACE: /workspace
-    # auth handled by tailnet — leave lsio PASSWORD/HASHED_PASSWORD unset
 
 services:
   tsdproxy:
@@ -205,7 +204,7 @@ MagicDNS + HTTPS certs enabled on the tailnet; auth key (reusable, tagged
 
 - Tailscale sidecar + serve: https://tailscale.com/kb/1282/docker,
   https://github.com/tailscale-dev/docker-guide-code-examples
-- lsio code-server: https://docs.linuxserver.io/images/docker-code-server/
+- code-server releases: https://github.com/coder/code-server/releases
 - Anthropic devcontainer (firewall reference): https://code.claude.com/docs/en/devcontainer
 - Prior art: https://github.com/CoderLuii/HolyClaude,
   https://github.com/xintaofei/codeg,

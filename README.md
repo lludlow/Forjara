@@ -11,8 +11,9 @@ Valid HTTPS certs, tailnet-only, nothing published on the LAN.
 
 ## What's in the image
 
-`ghcr.io/lludlow/forjara` = [linuxserver/code-server](https://docs.linuxserver.io/images/docker-code-server/)
-plus Node 22, tmux, ripgrep, and:
+`ghcr.io/lludlow/forjara` = the official
+[code-server release](https://github.com/coder/code-server/releases), on Node
+22 slim, plus tmux, ripgrep, and:
 
 | CLI | command |
 |---|---|
