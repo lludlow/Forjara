@@ -102,8 +102,7 @@ export class GhosttyTerminal {
   write(bytes) {
     this.#withBytes(bytes.length, (pointer) => {
       new Uint8Array(this.memory.buffer, pointer, bytes.length).set(bytes);
-      const result = this.exports.ghostty_terminal_vt_write(this.handle, pointer, bytes.length);
-      if (result !== 0) throw new Error(`ghostty_terminal_vt_write: ${result}`);
+      this.exports.ghostty_terminal_vt_write(this.handle, pointer, bytes.length);
     });
   }
 

@@ -8,13 +8,44 @@
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-  <header>
-    <strong>Forjara</strong>
-    <span id="status">connecting</span>
-  </header>
-  <main>
-    <canvas id="terminal" role="application" aria-label="Terminal" tabindex="0"></canvas>
-  </main>
+  <aside>
+    <div class="brand"><strong>Forjara</strong><button id="new-session" title="New agent">+</button></div>
+    <nav id="projects" aria-label="Projects and sessions"></nav>
+  </aside>
+  <section class="workspace">
+    <header>
+      <button id="sidebar-toggle" title="Projects">☰</button>
+      <div id="context">Agent workspace</div>
+      <div class="actions">
+        <span id="status">ready</span>
+        <button id="split" title="Toggle split" disabled>Split</button>
+        <button id="restart" title="Restart session" disabled>Restart</button>
+        <button id="close-session" class="danger" title="Close session" disabled>Close</button>
+      </div>
+    </header>
+    <nav id="tabs" aria-label="Open sessions"></nav>
+    <main id="surfaces" aria-label="Terminal surfaces">
+      <div class="empty-state">
+        <h1>Your agents, one workspace.</h1>
+        <p>Create a shell or coding agent from any mounted project.</p>
+        <button id="empty-new">New agent</button>
+      </div>
+    </main>
+  </section>
+
+  <dialog id="session-dialog">
+    <form id="session-form">
+      <h2>New agent</h2>
+      <label>Project<select name="project" required></select></label>
+      <label>Name<input name="name" maxlength="80" placeholder="Fix API tests" required autofocus></label>
+      <label>Agent<select name="agent"><option value="shell">Shell</option><option value="codex">Codex</option><option value="claude">Claude</option><option value="agy">Antigravity</option><option value="opencode">opencode</option></select></label>
+      <label class="check"><input name="newWorktree" type="checkbox"> Create a Git worktree</label>
+      <label id="branch-field" hidden>Branch<input name="branch" placeholder="forjara/fix-api-tests"></label>
+      <output id="form-error"></output>
+      <div class="dialog-actions"><button type="button" id="cancel">Cancel</button><button type="submit">Create</button></div>
+    </form>
+  </dialog>
+
   <script type="module" src="/app.js"></script>
 </body>
 </html>
