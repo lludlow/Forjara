@@ -1,0 +1,4 @@
+config/tsdproxy.yaml
+.env
+projects/
+SPEC.md
