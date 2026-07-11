@@ -28,7 +28,7 @@ function renderSidebar() {
     if (!sessions.length) section.append(node('div', 'no-sessions', 'No sessions'));
     for (const session of sessions) {
       const button = node('button', `session${session.id === state.active ? ' active' : ''}`);
-      button.append(node('span', `dot ${session.status}`), node('span', 'session-name', session.name), node('span', 'agent', session.agent || 'shell'));
+      button.append(node('span', `dot ${session.activity || session.status}`), node('span', 'session-name', session.name), node('span', 'agent', session.activity || session.agent || 'shell'));
       button.title = `${session.cwd}\n${session.status}`;
       button.onclick = () => openSession(session.id);
       section.append(button);
@@ -205,3 +205,5 @@ function relativeProject(path) { return state.projects.find(project => project.p
 function node(tag, className = '', text = '') { const element = document.createElement(tag); element.className = className; if (text) element.textContent = text; return element; }
 
 await refresh();
+const events = new EventSource('/api/events');
+events.addEventListener('state', () => refresh().catch(error => elements.status.textContent = error.message));

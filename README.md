@@ -86,6 +86,22 @@ Worktrees live under `<project>/.forjara/worktrees/` and are excluded through
 the repository's local `.git/info/exclude`. Closing a session does not delete
 its worktree.
 
+## Agent attention signals
+
+Agent sessions receive `FORJARA_SESSION_ID` and `FORJARA_EVENT_SOCKET`.
+Integrations can update the sidebar without parsing terminal output:
+
+```bash
+forjara-web signal busy
+forjara-web signal awaiting_input
+forjara-web signal idle
+forjara-web signal notification
+```
+
+Forjara reports agent process start and exit automatically. Agent-specific
+hooks may invoke the commands above; they are delivered over a private Unix
+socket and streamed to open browsers.
+
 ## Security notes
 
 - Keep Tailscale Funnel off — these containers hold live Anthropic/OpenAI/
