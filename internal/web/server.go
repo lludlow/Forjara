@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/coder/websocket"
@@ -25,9 +24,10 @@ type Server struct {
 	workspace string
 	wasmPath  string
 	assets    http.Handler
+	registry  *Registry
 }
 
-func New(workspace, wasmPath string) (*Server, error) {
+func New(workspace, wasmPath, stateDir string) (*Server, error) {
 	root, err := filepath.EvalSymlinks(workspace)
 	if err != nil {
 		return nil, fmt.Errorf("workspace: %w", err)
@@ -36,7 +36,11 @@ func New(workspace, wasmPath string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Server{workspace: root, wasmPath: wasmPath, assets: http.FileServer(http.FS(assets))}, nil
+	registry, err := NewRegistry(root, stateDir)
+	if err != nil {
+		return nil, err
+	}
+	return &Server{workspace: root, wasmPath: wasmPath, assets: http.FileServer(http.FS(assets)), registry: registry}, nil
 }
 
 func (s *Server) Handler() http.Handler {
@@ -45,10 +49,60 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"status":"ok"}`)
 	})
-	mux.HandleFunc("GET /api/terminal", s.terminal)
+	mux.HandleFunc("GET /api/state", s.state)
+	mux.HandleFunc("POST /api/sessions", s.createSession)
+	mux.HandleFunc("DELETE /api/sessions/{id}", s.deleteSession)
+	mux.HandleFunc("POST /api/sessions/{id}/restart", s.restartSession)
+	mux.HandleFunc("GET /api/sessions/{id}/terminal", s.terminal)
 	mux.HandleFunc("GET /ghostty-vt.wasm", s.wasm)
 	mux.Handle("/", s.assets)
 	return mux
+}
+
+func (s *Server) state(w http.ResponseWriter, _ *http.Request) {
+	projects, err := s.registry.Projects()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"projects": projects, "sessions": s.registry.Sessions()})
+}
+
+func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
+	var input CreateSession
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10)).Decode(&input); err != nil {
+		http.Error(w, "invalid session", http.StatusBadRequest)
+		return
+	}
+	session, err := s.registry.Create(input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusCreated, session)
+}
+
+func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
+	if err := s.registry.Delete(r.PathValue("id")); err != nil {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) restartSession(w http.ResponseWriter, r *http.Request) {
+	session, err := s.registry.Restart(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, session)
+}
+
+func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(value)
 }
 
 func (s *Server) wasm(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +121,12 @@ type control struct {
 }
 
 func (s *Server) terminal(w http.ResponseWriter, r *http.Request) {
-	if err := ensureSession(r.Context(), "forjara-main", s.workspace); err != nil {
+	session, ok := s.registry.Session(r.PathValue("id"))
+	if !ok {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	if err := startSession(session); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -79,7 +138,7 @@ func (s *Server) terminal(w http.ResponseWriter, r *http.Request) {
 	defer conn.CloseNow()
 	conn.SetReadLimit(64 << 10)
 
-	cmd := exec.CommandContext(r.Context(), "tmux", "attach-session", "-t", "forjara-main")
+	cmd := exec.CommandContext(r.Context(), "tmux", "attach-session", "-t", session.Tmux)
 	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: 120, Rows: 40})
 	if err != nil {
 		_ = conn.Close(websocket.StatusInternalError, "PTY unavailable")
@@ -149,17 +208,6 @@ func clamp(value, low, high int) int {
 		return high
 	}
 	return value
-}
-
-func ensureSession(ctx context.Context, name, cwd string) error {
-	if exec.CommandContext(ctx, "tmux", "has-session", "-t", name).Run() == nil {
-		return nil
-	}
-	command := exec.CommandContext(ctx, "tmux", "new-session", "-d", "-s", name, "-c", cwd)
-	if output, err := command.CombinedOutput(); err != nil {
-		return fmt.Errorf("start tmux: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	return nil
 }
 
 func ListenAddress() string {
