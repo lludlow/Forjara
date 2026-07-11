@@ -74,3 +74,16 @@ func TestSlug(t *testing.T) {
 		t.Fatalf("empty slug fallback = %q", got)
 	}
 }
+
+func TestProjectNameUsesRemote(t *testing.T) {
+	repository := t.TempDir()
+	if err := exec.Command("git", "-C", repository, "init", "-q").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("git", "-C", repository, "remote", "add", "origin", "git@github.com:example/project.git").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if got := projectName(repository); got != "project" {
+		t.Fatalf("projectName = %q", got)
+	}
+}

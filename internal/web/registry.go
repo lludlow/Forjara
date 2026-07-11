@@ -76,7 +76,7 @@ func NewRegistry(workspace, stateDir string) (*Registry, error) {
 
 func (r *Registry) Projects() ([]Project, error) {
 	if isGit(r.workspace) {
-		return []Project{{Name: filepath.Base(r.workspace), Path: r.workspace, Git: true}}, nil
+		return []Project{{Name: projectName(r.workspace), Path: r.workspace, Git: true}}, nil
 	}
 	entries, err := os.ReadDir(r.workspace)
 	if err != nil {
@@ -283,6 +283,16 @@ func allowedAgent(agent string) bool {
 
 func isGit(path string) bool {
 	return exec.Command("git", "-C", path, "rev-parse", "--is-inside-work-tree").Run() == nil
+}
+
+func projectName(path string) string {
+	if output, err := exec.Command("git", "-C", path, "config", "--get", "remote.origin.url").Output(); err == nil {
+		remote := strings.TrimSuffix(strings.TrimSpace(string(output)), ".git")
+		if name := filepath.Base(remote); name != "." && name != "" {
+			return name
+		}
+	}
+	return filepath.Base(path)
 }
 
 func randomID() (string, error) {
