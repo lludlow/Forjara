@@ -19,11 +19,8 @@ header {
 main { min-height: 0; }
 #terminal {
   background: #0b0d11;
-  color: #d8dee9;
-  font: 14px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  display: block;
   height: 100%;
   outline: none;
-  overflow: hidden;
-  padding: 8px;
-  white-space: pre-wrap;
+  width: 100%;
 }
