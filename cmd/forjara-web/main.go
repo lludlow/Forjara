@@ -10,7 +10,8 @@ import (
 
 func main() {
 	workspace := first(os.Getenv("FORJARA_WORKSPACE"), "/workspace")
-	server, err := forjaraweb.New(workspace, os.Getenv("FORJARA_GHOSTTY_WASM"))
+	stateDir := first(os.Getenv("FORJARA_STATE_DIR"), first(os.Getenv("HOME"), "/config")+"/.local/state/forjara")
+	server, err := forjaraweb.New(workspace, os.Getenv("FORJARA_GHOSTTY_WASM"), stateDir)
 	if err != nil {
 		log.Fatal(err)
 	}
