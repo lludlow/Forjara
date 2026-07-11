@@ -111,8 +111,3 @@ socket and streamed to open browsers.
 - Scope the auth key with a `tag:forjara` ACL.
 - Running agents unsupervised? Add an egress firewall — see
   [Anthropic's devcontainer reference](https://code.claude.com/docs/en/devcontainer).
-
-## Design
-
-See [WEB_TERMINAL_DESIGN.md](WEB_TERMINAL_DESIGN.md) for the architecture,
-libghostty boundary, delivery plan, and deferred features.
