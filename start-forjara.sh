@@ -13,6 +13,12 @@ for service in "${requested[@]}"; do
 done
 $vscode || $web || { echo "FORJARA_SERVICES must enable vscode, web, or both" >&2; exit 2; }
 
+# Bind-mounted repositories commonly have a host UID that differs from the
+# unprivileged container user. Every repository visible here is already inside
+# the explicitly mounted workspace boundary.
+git config --global --get-all safe.directory 2>/dev/null | grep -Fx '*' >/dev/null \
+  || git config --global --add safe.directory '*'
+
 if $vscode; then
   settings="$HOME/.local/share/code-server/User/settings.json"
   [ -e "$settings" ] || { mkdir -p "${settings%/*}"; printf '{\n  "workbench.colorTheme": "Dark Modern"\n}\n' > "$settings"; }
