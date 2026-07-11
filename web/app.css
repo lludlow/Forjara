@@ -40,6 +40,10 @@ aside { background: var(--panel); border-right: 1px solid var(--border); min-wid
 .agent { color: var(--muted); font-size: 11px; }
 .dot { background: #6e738d; border-radius: 50%; height: 7px; width: 7px; }
 .dot.running { background: #a6da95; box-shadow: 0 0 5px #a6da9580; }
+.dot.busy, .dot.started { background: #8aadf4; box-shadow: 0 0 5px #8aadf480; }
+.dot.awaiting_input, .dot.notification { background: #eed49f; box-shadow: 0 0 6px #eed49fa0; }
+.dot.idle { background: #a6da95; }
+.dot.stopped { background: #6e738d; }
 .no-sessions { color: var(--muted); font-size: 12px; padding: 4px 8px 8px 25px; }
 
 .workspace { display: grid; grid-template-rows: 48px 38px 1fr; min-width: 0; }

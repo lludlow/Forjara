@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -25,6 +26,8 @@ type Server struct {
 	wasmPath  string
 	assets    http.Handler
 	registry  *Registry
+	mu        sync.Mutex
+	listeners map[chan struct{}]struct{}
 }
 
 func New(workspace, wasmPath, stateDir string) (*Server, error) {
@@ -40,7 +43,7 @@ func New(workspace, wasmPath, stateDir string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Server{workspace: root, wasmPath: wasmPath, assets: http.FileServer(http.FS(assets)), registry: registry}, nil
+	return &Server{workspace: root, wasmPath: wasmPath, assets: http.FileServer(http.FS(assets)), registry: registry, listeners: map[chan struct{}]struct{}{}}, nil
 }
 
 func (s *Server) Handler() http.Handler {
@@ -50,6 +53,7 @@ func (s *Server) Handler() http.Handler {
 		_, _ = io.WriteString(w, `{"status":"ok"}`)
 	})
 	mux.HandleFunc("GET /api/state", s.state)
+	mux.HandleFunc("GET /api/events", s.events)
 	mux.HandleFunc("POST /api/sessions", s.createSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.deleteSession)
 	mux.HandleFunc("POST /api/sessions/{id}/restart", s.restartSession)
@@ -79,6 +83,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	s.notify()
 	writeJSON(w, http.StatusCreated, session)
 }
 
@@ -87,6 +92,7 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "session not found", http.StatusNotFound)
 		return
 	}
+	s.notify()
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -96,7 +102,57 @@ func (s *Server) restartSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "session not found", http.StatusNotFound)
 		return
 	}
+	s.notify()
 	writeJSON(w, http.StatusOK, session)
+}
+
+func (s *Server) events(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unavailable", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	listener := make(chan struct{}, 1)
+	s.mu.Lock()
+	s.listeners[listener] = struct{}{}
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.listeners, listener)
+		s.mu.Unlock()
+	}()
+	_, _ = io.WriteString(w, ": connected\n\n")
+	flusher.Flush()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-listener:
+			_, _ = io.WriteString(w, "event: state\ndata: {}\n\n")
+			flusher.Flush()
+		}
+	}
+}
+
+func (s *Server) Signal(session, activity string) error {
+	if err := s.registry.UpdateActivity(session, activity); err != nil {
+		return err
+	}
+	s.notify()
+	return nil
+}
+
+func (s *Server) notify() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for listener := range s.listeners {
+		select {
+		case listener <- struct{}{}:
+		default:
+		}
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

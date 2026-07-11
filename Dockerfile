@@ -58,6 +58,7 @@ ENV HOME=/config \
     FORJARA_SERVICES=vscode,web \
     FORJARA_WORKSPACE=/workspace \
     FORJARA_STATE_DIR=/config/.local/state/forjara \
+    FORJARA_EVENT_SOCKET=/config/.local/state/forjara/events.sock \
     FORJARA_GHOSTTY_WASM=/opt/forjara/ghostty-vt.wasm
 USER node
 WORKDIR /workspace

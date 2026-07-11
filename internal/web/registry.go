@@ -31,6 +31,7 @@ type Session struct {
 	Agent     string    `json:"agent,omitempty"`
 	Tmux      string    `json:"tmux"`
 	Status    string    `json:"status"`
+	Activity  string    `json:"activity,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -203,6 +204,23 @@ func (r *Registry) Delete(id string) error {
 	return r.saveLocked()
 }
 
+func (r *Registry) UpdateActivity(id, activity string) error {
+	switch activity {
+	case "started", "busy", "awaiting_input", "idle", "stopped", "notification":
+	default:
+		return errors.New("invalid activity")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	session, ok := r.sessions[id]
+	if !ok {
+		return os.ErrNotExist
+	}
+	session.Activity = activity
+	r.sessions[id] = session
+	return r.saveLocked()
+}
+
 func (r *Registry) safePath(path string) (string, error) {
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
@@ -237,12 +255,17 @@ func startSession(session Session) error {
 	if exec.Command("tmux", "has-session", "-t", session.Tmux).Run() == nil {
 		return nil
 	}
-	command := exec.Command("tmux", "new-session", "-d", "-s", session.Tmux, "-c", session.CWD, "-e", "FORJARA_SESSION_ID="+session.ID)
+	arguments := []string{"new-session", "-d", "-s", session.Tmux, "-c", session.CWD, "-e", "FORJARA_SESSION_ID=" + session.ID}
+	if socket := os.Getenv("FORJARA_EVENT_SOCKET"); socket != "" {
+		arguments = append(arguments, "-e", "FORJARA_EVENT_SOCKET="+socket)
+	}
+	command := exec.Command("tmux", arguments...)
 	if output, err := command.CombinedOutput(); err != nil {
 		return fmt.Errorf("start session: %s", strings.TrimSpace(string(output)))
 	}
 	if allowedAgent(session.Agent) {
-		if output, err := exec.Command("tmux", "send-keys", "-t", session.Tmux, session.Agent, "Enter").CombinedOutput(); err != nil {
+		launch := "forjara-web signal started; " + session.Agent + "; forjara-web signal stopped"
+		if output, err := exec.Command("tmux", "send-keys", "-t", session.Tmux, launch, "Enter").CombinedOutput(); err != nil {
 			return fmt.Errorf("launch agent: %s", strings.TrimSpace(string(output)))
 		}
 	}
