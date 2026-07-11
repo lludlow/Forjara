@@ -195,6 +195,7 @@ func (s *Server) terminal(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(64 << 10)
 
 	cmd := exec.CommandContext(r.Context(), "tmux", "attach-session", "-t", session.Tmux)
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
 	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: 120, Rows: 40})
 	if err != nil {
 		_ = conn.Close(websocket.StatusInternalError, "PTY unavailable")
