@@ -3,6 +3,7 @@ import { CanvasTerminal } from './terminal.js';
 
 const elements = Object.fromEntries(['projects', 'tabs', 'surfaces', 'status', 'context', 'split', 'restart', 'close-session', 'session-dialog', 'session-form', 'form-error', 'branch-field'].map(id => [id, document.getElementById(id)]));
 const state = { projects: [], sessions: [], tabs: [], active: '', split: false, surfaces: new Map() };
+const savedLayout = loadLayout();
 
 async function request(path, options) {
   const response = await fetch(path, options);
@@ -76,6 +77,7 @@ function activate(id) {
   renderTabs();
   updateToolbar();
   document.body.classList.remove('sidebar-open');
+  persistLayout();
 }
 
 async function createSurface(id) {
@@ -184,6 +186,7 @@ function updateToolbar() {
 elements.split.onclick = () => {
   state.split = !state.split;
   renderSurfaces();
+  persistLayout();
 };
 elements.restart.onclick = async () => { if (state.active) await request(`/api/sessions/${state.active}/restart`, { method: 'POST' }), await refresh(); };
 elements['close-session'].onclick = async () => {
@@ -197,6 +200,7 @@ elements['close-session'].onclick = async () => {
   state.surfaces.delete(session.id);
   state.tabs = state.tabs.filter(id => id !== session.id);
   state.active = state.tabs.at(-1) ?? '';
+  persistLayout();
   await refresh();
 };
 
@@ -209,7 +213,14 @@ elements['session-form'].elements.newWorktree.onchange = event => elements['bran
 function findSession(id) { return state.sessions.find(session => session.id === id); }
 function relativeProject(path) { return state.projects.find(project => project.path === path)?.name ?? path; }
 function node(tag, className = '', text = '') { const element = document.createElement(tag); element.className = className; if (text) element.textContent = text; return element; }
+function persistLayout() { localStorage.setItem('forjara.layout', JSON.stringify({ tabs: state.tabs, active: state.active, split: state.split })); }
+function loadLayout() { try { return JSON.parse(localStorage.getItem('forjara.layout') || '{}'); } catch { return {}; } }
 
 await refresh();
+for (const id of (savedLayout.tabs || []).filter(id => findSession(id))) await openSession(id);
+if (findSession(savedLayout.active)) activate(savedLayout.active);
+state.split = Boolean(savedLayout.split) && state.tabs.length > 1;
+renderTabs();
+persistLayout();
 const events = new EventSource('/api/events');
 events.addEventListener('state', () => refresh().catch(error => elements.status.textContent = error.message));
