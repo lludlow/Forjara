@@ -10,4 +10,4 @@ docker:
 tailscale:
   providers:
     default:
-      authkey: "tskey-auth-REPLACE-ME"   # tag with tag:aidev in the admin console
+      authkey: "tskey-auth-REPLACE-ME"   # tag with tag:forjara in the admin console

@@ -1,4 +1,4 @@
-# aidev — per-project AI coding workspaces on your tailnet
+# Forjara — per-project AI coding workspaces on your tailnet
 
 One container per project, each its own tailnet machine with web VS Code and
 the AI coding CLIs ready in the terminal:
@@ -11,7 +11,7 @@ Valid HTTPS certs, tailnet-only, nothing published on the LAN.
 
 ## What's in the image
 
-`ghcr.io/lludlow/aidev` = [linuxserver/code-server](https://docs.linuxserver.io/images/docker-code-server/)
+`ghcr.io/lludlow/forjara` = [linuxserver/code-server](https://docs.linuxserver.io/images/docker-code-server/)
 plus Node 22, tmux, ripgrep, and:
 
 | CLI | command |
@@ -27,10 +27,10 @@ project, survives container recreation.
 ## Quick start
 
 Prereqs (one-time): [MagicDNS + HTTPS certs](https://tailscale.com/kb/1153/enabling-https)
-enabled on your tailnet; a reusable auth key tagged `tag:aidev`.
+enabled on your tailnet; a reusable auth key tagged `tag:forjara`.
 
 ```bash
-git clone https://github.com/lludlow/aidev && cd aidev
+git clone git@github.com:lludlow/Forjara.git && cd Forjara
 cp config/tsdproxy.yaml.example config/tsdproxy.yaml   # paste your auth key
 docker compose up -d
 ```
@@ -51,7 +51,7 @@ labels and it appears on your tailnet.
   Google credentials.
 - Never mount `/var/run/docker.sock`, `~/.ssh`, `~/.aws`, or host `/home`
   into a workspace. (tsdproxy holds the socket; the workspaces never do.)
-- Scope the auth key with a `tag:aidev` ACL.
+- Scope the auth key with a `tag:forjara` ACL.
 - Running agents unsupervised? Add an egress firewall — see
   [Anthropic's devcontainer reference](https://code.claude.com/docs/en/devcontainer).
 

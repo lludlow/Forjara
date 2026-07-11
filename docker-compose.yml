@@ -2,7 +2,7 @@
 # tsdproxy. New project = copy a workspace block, change 3 lines, `up -d`.
 
 x-workspace: &workspace
-  image: ghcr.io/lludlow/aidev:latest
+  image: ghcr.io/lludlow/forjara:latest
   # build: .    # uncomment to build locally instead of pulling
   restart: unless-stopped
   environment:

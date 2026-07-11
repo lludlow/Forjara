@@ -1,4 +1,4 @@
-# aidev — AI coding workspace in a box
+# Forjara — AI coding workspace in a box
 
 One workspace container **per project**, each its own tailnet machine:
 `https://submind.<tailnet>.ts.net`, `https://atlas.<tailnet>.ts.net`, ...
@@ -25,7 +25,7 @@ an image.
 ## Layout
 
 ```
-aidev/
+Forjara/
 ├── docker-compose.yml        # tsdproxy + one service block per project
 ├── Dockerfile
 ├── install-google-agent.sh
@@ -157,7 +157,7 @@ New project = new service block (3 lines differ: name, label, mounts) +
 - **tsdproxy trade-off**: a third-party daemon holding your auth key AND the
   Docker socket. Acceptable because it's the infra daemon, not the AI
   workspaces — the agents still never see the socket. Use a tagged key
-  (`tag:aidev`) so its blast radius is ACL-bounded.
+  (`tag:forjara`) so its blast radius is ACL-bounded.
 
 Do NOT do the hybrid where a tailscale sidecar runs beside an app container
 publishing to host 127.0.0.1 without `network_mode: service:tailscale` and a
@@ -171,7 +171,7 @@ serve config — the sidecar joins the tailnet but routes nothing to the app.
   from malicious repos.
 - Nested builds, in order of preference: rootless podman > sysbox >
   privileged dind (trusted repos on a disposable host only). v1 ships none.
-- Funnel off; tailnet ACLs limit who reaches `tag:aidev`.
+- Funnel off; tailnet ACLs limit who reaches `tag:forjara`.
 - Egress firewall: crib `init-firewall.sh` from Anthropic's devcontainer
   when running agents unsupervised.
 
@@ -199,7 +199,7 @@ control plane + Postgres + Terraform for capabilities n=1 doesn't use.
 ## Tailnet prereqs (one-time)
 
 MagicDNS + HTTPS certs enabled on the tailnet; auth key (reusable, tagged
-`tag:aidev`) from the admin console.
+`tag:forjara`) from the admin console.
 
 ## References
 
