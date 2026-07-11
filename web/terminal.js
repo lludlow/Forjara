@@ -10,6 +10,9 @@ export class CanvasTerminal {
     this.cellWidth = 9;
     this.cellHeight = 19;
     this.onResize = () => {};
+    this.selection = null;
+    this.frame = null;
+    this.#bindSelection();
   }
 
   fit() {
@@ -31,12 +34,14 @@ export class CanvasTerminal {
 
   render() {
     const frame = this.ghostty.frame();
+    this.frame = frame;
     this.context.fillStyle = rgb(frame.background);
     this.context.fillRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight);
     for (const cell of frame.cells) {
       if (cell.width === 2) continue;
       let foreground = cell.fg;
       let background = cell.bg;
+      if (this.#selected(cell.x, cell.y)) [foreground, background] = [[11, 13, 17], [138, 173, 244]];
       if (cell.style.inverse) [foreground, background] = [background, foreground];
       const x = cell.x * this.cellWidth;
       const y = cell.y * this.cellHeight;
@@ -65,5 +70,60 @@ export class CanvasTerminal {
   #line(x, y, color) {
     this.context.fillStyle = rgb(color);
     this.context.fillRect(x, y, this.cellWidth, 1);
+  }
+
+  copySelection() {
+    if (!this.selection || !this.frame) return false;
+    const [start, end] = this.#orderedSelection();
+    const lines = [];
+    for (let y = start.y; y <= end.y; y++) {
+      const left = y === start.y ? start.x : 0;
+      const right = y === end.y ? end.x : this.ghostty.cols - 1;
+      lines.push(this.frame.cells.filter(cell => cell.y === y && cell.x >= left && cell.x <= right && cell.width !== 2).map(cell => cell.text || ' ').join('').trimEnd());
+    }
+    void navigator.clipboard.writeText(lines.join('\n'));
+    return true;
+  }
+
+  clearSelection() {
+    if (!this.selection) return;
+    this.selection = null;
+    this.render();
+  }
+
+  #bindSelection() {
+    let selecting = false;
+    this.canvas.addEventListener('mousedown', event => {
+      if (event.button !== 0) return;
+      selecting = true;
+      const point = this.#point(event);
+      this.selection = { start: point, end: point };
+      this.render();
+    });
+    this.canvas.addEventListener('mousemove', event => {
+      if (!selecting) return;
+      this.selection.end = this.#point(event);
+      this.render();
+    });
+    window.addEventListener('mouseup', () => selecting = false);
+  }
+
+  #point(event) {
+    const bounds = this.canvas.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(this.ghostty.cols - 1, Math.floor((event.clientX - bounds.left) / this.cellWidth))),
+      y: Math.max(0, Math.min(this.ghostty.rows - 1, Math.floor((event.clientY - bounds.top) / this.cellHeight))),
+    };
+  }
+
+  #orderedSelection() {
+    const { start, end } = this.selection;
+    return start.y < end.y || start.y === end.y && start.x <= end.x ? [start, end] : [end, start];
+  }
+
+  #selected(x, y) {
+    if (!this.selection) return false;
+    const [start, end] = this.#orderedSelection();
+    return (y > start.y || y === start.y && x >= start.x) && (y < end.y || y === end.y && x <= end.x);
   }
 }
