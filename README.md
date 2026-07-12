@@ -158,18 +158,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 USER node
 ```
 
-The project's CI builds and publishes it (e.g.
-`ghcr.io/lludlow/atlas-forjara:latest`), and its workspace block in
-`docker-compose.yml` overrides `image:` to that tag (see the commented
-example there) — the deploy host only ever pulls. Everything else —
-entrypoint, agents, code-server, `/config` persistence — is inherited.
-
-For local iteration on such a Dockerfile, build and tag it directly; never
-reuse the base image's tag or every other workspace inherits your changes:
-
-```bash
-docker build -t atlas-forjara:dev -f .forjara/Dockerfile .
-```
+and its workspace block in `docker-compose.yml` adds a `build:` section with
+a project-specific `image:` tag and `pull_policy: build` (see the commented
+example there). It's a thin layer on the already-pulled base image, so the
+build takes seconds. Everything else — entrypoint, agents, code-server,
+`/config` persistence — is inherited.
 
 ### Service sidecars
 

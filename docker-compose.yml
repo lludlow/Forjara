@@ -31,10 +31,15 @@ services:
 
   atlas:
     <<: *workspace
-    # Needs OS packages beyond the base image? Point at the project's
-    # published derived image instead of the shared one (see "Project
-    # environments" in the README):
-    # image: ghcr.io/lludlow/atlas-forjara:latest
+    # Needs OS packages beyond the base image? Give the project a derived
+    # image (see "Project environments" in the README). The tag override and
+    # pull_policy matter: without them Compose pulls the shared base instead
+    # of building, and a build would clobber the shared base tag.
+    # image: forjara-atlas
+    # pull_policy: build
+    # build:
+    #   context: ${PROJECTS_DIR:-./projects}/atlas
+    #   dockerfile: .forjara/Dockerfile
     labels:
       tsdproxy.enable: "true"
       tsdproxy.name: "atlas"            # -> https://atlas.<tailnet>.ts.net
