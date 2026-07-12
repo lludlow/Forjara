@@ -54,6 +54,24 @@ the project, agent, and whether it should get an isolated Git worktree.
 
 VS Code remains available at `https://submind.<tailnet>.ts.net`.
 
+## Local QA
+
+Build the current checkout and mount it at `/workspace`:
+
+```bash
+docker compose -f docker-compose.local.yml up --build -d
+```
+
+Open Forjara at `http://localhost:8080` or VS Code at
+`http://localhost:8443`. Stop it with:
+
+```bash
+docker compose -f docker-compose.local.yml down
+```
+
+The config volume survives rebuilds. Add `-v` to `down` when you want a clean
+login and session state.
+
 ## Interface modes
 
 Both interfaces are enabled by default. Set one environment variable before
