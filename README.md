@@ -62,26 +62,6 @@ the project, agent, and whether it should get an isolated Git worktree.
 
 VS Code remains available at `https://submind.<tailnet>.ts.net`.
 
-## Local QA
-
-Copy the example compose file (the copy is gitignored — point its mounts at
-whatever you want to test), then build and run:
-
-```bash
-cp docker-compose.local.example.yml docker-compose.local.yml
-docker compose -f docker-compose.local.yml up --build -d
-```
-
-Open Forjara at `http://localhost:8080` or VS Code at
-`http://localhost:8443`. Stop it with:
-
-```bash
-docker compose -f docker-compose.local.yml down
-```
-
-The config volume survives rebuilds. Add `-v` to `down` when you want a clean
-login and session state.
-
 ## Interface modes
 
 Both interfaces are enabled by default. Set one environment variable before
@@ -184,20 +164,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 USER node
 ```
 
-and change its workspace block in `docker-compose.yml` from the shared image
-to:
-
-```yaml
-  atlas:
-    <<: *workspace
-    image: forjara-atlas        # own tag — never reuse the base image's
-    pull_policy: build          # build the layer; don't pull the base instead
-    build:
-      context: ${PROJECTS_DIR:-./projects}/atlas
-      dockerfile: .forjara/Dockerfile
-    ...
-```
-
+and its workspace block uses `build:` with its own image tag — the complete
+service is in [docker-compose.derived.example.yml](docker-compose.derived.example.yml).
 This is not "building Forjara" — it's an apt layer on top of the pulled base
 image, built in seconds by the same `docker compose up -d`. Entrypoint,
 agents, code-server, mise, and `/config` persistence are all inherited.

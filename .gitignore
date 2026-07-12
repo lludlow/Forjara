@@ -3,3 +3,5 @@ config/tsdproxy.yaml
 projects/
 SPEC.md
 docker-compose.local.yml
+CLAUDE.md
+IDEAS.md

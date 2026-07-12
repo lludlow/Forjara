@@ -1,0 +1,42 @@
+# Example 2: a workspace whose project needs OS packages baked in — native
+# libraries, database client tools, Playwright browser deps. (Example 1 is
+# docker-compose.yml, where every workspace just pulls the published image;
+# language runtimes never need this — see "Project environments" in the
+# README for mise.)
+#
+# The project ships a small Dockerfile at .forjara/Dockerfile:
+#
+#   FROM ghcr.io/lludlow/forjara:latest
+#   USER root
+#   RUN apt-get update && apt-get install -y --no-install-recommends \
+#         postgresql-client libvips-dev \
+#    && rm -rf /var/lib/apt/lists/*
+#   USER node
+#
+# and its workspace block uses build: instead of the shared image. This is a
+# thin layer on the already-pulled base — `docker compose up -d` builds it in
+# seconds. Merge the service into your docker-compose.yml next to tsdproxy;
+# it is shown standalone here for clarity.
+
+services:
+  atlas:
+    image: forjara-atlas        # own tag — never reuse the base image's tag,
+    pull_policy: build          # and always build rather than pulling the base
+    build:
+      context: ${PROJECTS_DIR:-./projects}/atlas
+      dockerfile: .forjara/Dockerfile
+    restart: unless-stopped
+    environment:
+      TZ: America/Detroit
+      FORJARA_SERVICES: ${FORJARA_SERVICES:-vscode,web}
+    labels:
+      tsdproxy.enable: "true"
+      tsdproxy.name: "atlas"            # -> https://atlas.<tailnet>.ts.net
+      tsdproxy.port.1: "443/https:8443/http"
+      tsdproxy.port.2: "8444/https:8080/http"
+    volumes:
+      - atlas-config:/config
+      - ${PROJECTS_DIR:-./projects}/atlas:/workspace
+
+volumes:
+  atlas-config:

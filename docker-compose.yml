@@ -1,9 +1,10 @@
 # One workspace container per project, each its own tailnet machine via
 # tsdproxy. New project = copy a workspace block, change 3 lines, `up -d`.
+# Every workspace pulls the published image — nothing is built here. If a
+# project needs OS packages baked in, see docker-compose.derived.example.yml.
 
 x-workspace: &workspace
   image: ghcr.io/lludlow/forjara:latest
-  # build: .    # uncomment to build locally instead of pulling
   restart: unless-stopped
   environment:
     TZ: America/Detroit
@@ -31,15 +32,6 @@ services:
 
   atlas:
     <<: *workspace
-    # Needs OS packages beyond the base image? Give the project a derived
-    # image (see "Project environments" in the README). The tag override and
-    # pull_policy matter: without them Compose pulls the shared base instead
-    # of building, and a build would clobber the shared base tag.
-    # image: forjara-atlas
-    # pull_policy: build
-    # build:
-    #   context: ${PROJECTS_DIR:-./projects}/atlas
-    #   dockerfile: .forjara/Dockerfile
     labels:
       tsdproxy.enable: "true"
       tsdproxy.name: "atlas"            # -> https://atlas.<tailnet>.ts.net
