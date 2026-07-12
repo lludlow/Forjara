@@ -127,27 +127,53 @@ worktree; closing a workspace asks first, runs `git worktree remove` without
 The base image stays small on purpose — projects bring their own toolchains.
 The repository owns its environment; Forjara owns the development experience.
 
-### Language runtimes via mise
+Most projects need nothing but the pulled image and a `mise.toml`. In order
+of how often you'll need them:
 
-[mise](https://mise.jdx.dev) is preinstalled. A project that carries a
-`mise.toml` declares what it needs:
+| Your project needs | Use | Build required? |
+|---|---|---|
+| Node (any version) | already in the image, corepack included | no |
+| Go, Python, Rust, other runtimes | `mise.toml` in the repo | no |
+| OS packages (native libs, browsers) | small project Dockerfile | seconds, on the host |
+| PostgreSQL, Redis, etc. | Compose sidecar service | no |
+
+### Language runtimes via mise (the default — no build)
+
+[mise](https://mise.jdx.dev) is preinstalled in the image. Drop a `mise.toml`
+in the repo declaring what the project needs:
 
 ```toml
+# a Go project
 [tools]
 go = "1.22"
-python = "3.12"
 ```
 
-Run `mise trust && mise install` once in a terminal tab and the runtimes are
-live — installed under `/config`, so they survive container recreation and are
-shared by every project in the container. corepack is enabled too, so a
-`packageManager` pin in package.json (pnpm, yarn) resolves on first use.
+```toml
+# a Python project using uv
+[tools]
+python = "3.12"
+uv = "latest"
+```
+
+Then, once, in any terminal tab of that project:
+
+```bash
+mise trust && mise install
+```
+
+That's it — `go`, `python`, `uv` now resolve in every terminal and agent
+session, pinned to the project's versions. Runtimes install under `/config`,
+so they survive container recreation; you never rebuild or restart anything.
+
+Node projects usually need no `mise.toml` at all: the image ships Node 22
+with corepack enabled, so a `"packageManager": "pnpm@10.x"` pin in
+package.json resolves by itself on first `pnpm` run.
 
 ### OS packages: derive a project image
 
-mise covers language runtimes, not native libraries, database clients, or
-browser-test dependencies. For those, the project supplies a small Dockerfile
-(e.g. `.forjara/Dockerfile`) on top of the base image:
+mise installs language runtimes, not apt packages. If the project needs
+native libraries, database *client* tools, or Playwright's browser
+dependencies, give it a small Dockerfile — `.forjara/Dockerfile` in the repo:
 
 ```dockerfile
 FROM ghcr.io/lludlow/forjara:latest
@@ -158,18 +184,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 USER node
 ```
 
-and its workspace block in `docker-compose.yml` adds a `build:` section with
-a project-specific `image:` tag and `pull_policy: build` (see the commented
-example there). It's a thin layer on the already-pulled base image, so the
-build takes seconds. Everything else — entrypoint, agents, code-server,
-`/config` persistence — is inherited.
+and change its workspace block in `docker-compose.yml` from the shared image
+to:
+
+```yaml
+  atlas:
+    <<: *workspace
+    image: forjara-atlas        # own tag — never reuse the base image's
+    pull_policy: build          # build the layer; don't pull the base instead
+    build:
+      context: ${PROJECTS_DIR:-./projects}/atlas
+      dockerfile: .forjara/Dockerfile
+    ...
+```
+
+This is not "building Forjara" — it's an apt layer on top of the pulled base
+image, built in seconds by the same `docker compose up -d`. Entrypoint,
+agents, code-server, mise, and `/config` persistence are all inherited.
 
 ### Service sidecars
 
-Projects that need PostgreSQL, Redis, or similar get them as extra Compose
-services next to their workspace block, reachable by service name on the
-shared network. The workspace never gets the Docker socket; the host manages
-the sidecars. See the commented `atlas-db` example in `docker-compose.yml`.
+A project that needs PostgreSQL, Redis, or similar gets them as extra Compose
+services next to its workspace block — same network, reachable by service
+name:
+
+```yaml
+  atlas-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: dev
+    volumes:
+      - atlas-db-data:/var/lib/postgresql/data
+```
+
+Inside the atlas workspace, the database is simply `atlas-db:5432`. The host
+manages sidecars; the workspace never gets the Docker socket.
 
 ### Running and previewing a web app
 
