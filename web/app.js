@@ -83,14 +83,21 @@ function activate(id) {
 async function createSurface(id) {
   const element = node('section', 'surface');
   const canvas = document.createElement('canvas');
-  canvas.tabIndex = 0;
   canvas.setAttribute('role', 'application');
   canvas.setAttribute('aria-label', `${findSession(id)?.name ?? 'Agent'} terminal`);
+  // ponytail: hidden textarea owns focus so copy/paste work natively in every
+  // browser and over plain http — canvases never reliably receive clipboard events.
+  const input = document.createElement('textarea');
+  input.className = 'surface-input';
+  input.autocapitalize = 'off';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.setAttribute('aria-hidden', 'true');
   const badge = node('span', 'surface-state', 'connecting');
-  element.append(canvas, badge);
+  element.append(canvas, input, badge);
   const ghostty = await GhosttyTerminal.create('/ghostty-vt.wasm', 120, 40);
   const terminal = new CanvasTerminal(canvas, ghostty);
-  const surface = { element, canvas, badge, ghostty, terminal, socket: null, retry: null, disposed: false };
+  const surface = { element, canvas, input, badge, ghostty, terminal, socket: null, retry: null, disposed: false };
   bindInput(surface);
   connectSurface(id, surface);
   new ResizeObserver(() => !element.hidden && terminal.fit()).observe(element);
@@ -107,7 +114,7 @@ function connectSurface(id, surface) {
     surface.badge.textContent = 'connected';
     surface.terminal.onResize = size => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify({ type: 'resize', ...size }));
     surface.terminal.fit();
-    surface.canvas.focus();
+    surface.input.focus();
   };
   socket.onmessage = ({ data }) => {
     if (typeof data === 'string') return;
@@ -127,26 +134,55 @@ function connectSurface(id, surface) {
 }
 
 function bindInput(surface) {
-  surface.canvas.addEventListener('keydown', event => {
+  const input = surface.input;
+  const send = text => surface.socket?.readyState === WebSocket.OPEN && surface.socket.send(new TextEncoder().encode(text));
+  const copySelection = () => {
+    const text = surface.terminal.selectionText();
+    if (!text) return false;
+    // ponytail: stage in the textarea + execCommand so copy works without
+    // navigator.clipboard (plain-http origins, every browser).
+    input.value = text;
+    input.select();
+    document.execCommand('copy');
+    input.value = '';
+    surface.terminal.clearSelection();
+    return true;
+  };
+  surface.canvas.addEventListener('mousedown', event => {
+    event.preventDefault();
+    input.focus();
+  });
+  // Right-click pastes, PuTTY-style; with a selection it copies instead.
+  surface.canvas.addEventListener('contextmenu', event => {
+    event.preventDefault();
+    if (copySelection()) return;
+    navigator.clipboard?.readText().then(text => text && send(text)).catch(() => {});
+  });
+  input.addEventListener('keydown', event => {
     if (surface.socket?.readyState !== WebSocket.OPEN) return;
-    const copy = event.key.toLowerCase() === 'c' && (event.metaKey || event.ctrlKey && event.shiftKey);
-    if (copy && surface.terminal.copySelection()) {
+    const combo = event.metaKey || event.ctrlKey;
+    // Windows Terminal semantics: Ctrl/Cmd+C copies when a selection exists,
+    // otherwise falls through to the pty (SIGINT).
+    if (event.key.toLowerCase() === 'c' && combo && copySelection()) {
       event.preventDefault();
       return;
     }
-    if (event.key.toLowerCase() === 'v' && (event.metaKey || event.ctrlKey && event.shiftKey)) return;
-    surface.terminal.clearSelection();
+    // Let the browser's native paste fire on the textarea (Cmd+V, Ctrl+V,
+    // Ctrl+Shift+V). ponytail: plain Ctrl+V no longer sends ^V to the pty.
+    if (event.key.toLowerCase() === 'v' && combo) return;
     const data = surface.ghostty.encodeKey(event);
     if (!data.length) return;
+    surface.terminal.clearSelection();
     event.preventDefault();
     surface.socket.send(data);
   });
-  surface.canvas.addEventListener('paste', event => {
-    const text = event.clipboardData?.getData('text');
-    if (!text || surface.socket?.readyState !== WebSocket.OPEN) return;
+  input.addEventListener('paste', event => {
     event.preventDefault();
-    surface.socket.send(new TextEncoder().encode(text));
+    input.value = '';
+    const text = event.clipboardData?.getData('text');
+    if (text) send(text);
   });
+  input.addEventListener('input', () => { input.value = ''; });
 }
 
 function showCreate(project = state.projects[0]?.path) {

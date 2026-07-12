@@ -59,6 +59,7 @@ header { align-items: center; background: var(--panel); border-bottom: 1px solid
 #surfaces.split { grid-template-columns: 1fr 1fr; }
 .surface { border-right: 1px solid var(--border); min-height: 0; min-width: 0; position: relative; }
 .surface canvas { display: block; height: 100%; outline: none; width: 100%; }
+.surface-input { background: transparent; border: none; height: 0; left: 0; opacity: 0; overflow: hidden; padding: 0; position: absolute; resize: none; top: 0; width: 0; }
 .surface-state { background: #111318d9; border-radius: 4px; color: var(--muted); font-size: 11px; padding: 3px 6px; pointer-events: none; position: absolute; right: 8px; top: 8px; }
 .empty-state { align-self: center; color: var(--muted); justify-self: center; max-width: 420px; padding: 30px; text-align: center; }
 .empty-state h1 { color: #e6e9ef; font-size: 25px; margin-bottom: 8px; }

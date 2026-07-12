@@ -72,8 +72,8 @@ export class CanvasTerminal {
     this.context.fillRect(x, y, this.cellWidth, 1);
   }
 
-  copySelection() {
-    if (!this.selection || !this.frame) return false;
+  selectionText() {
+    if (!this.selection || !this.frame) return '';
     const [start, end] = this.#orderedSelection();
     const lines = [];
     for (let y = start.y; y <= end.y; y++) {
@@ -81,8 +81,7 @@ export class CanvasTerminal {
       const right = y === end.y ? end.x : this.ghostty.cols - 1;
       lines.push(this.frame.cells.filter(cell => cell.y === y && cell.x >= left && cell.x <= right && cell.width !== 2).map(cell => cell.text || ' ').join('').trimEnd());
     }
-    void navigator.clipboard.writeText(lines.join('\n'));
-    return true;
+    return lines.join('\n');
   }
 
   clearSelection() {
