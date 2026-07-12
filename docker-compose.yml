@@ -7,6 +7,7 @@ x-workspace: &workspace
   restart: unless-stopped
   environment:
     TZ: America/Detroit
+    FORJARA_SERVICES: ${FORJARA_SERVICES:-vscode,web}
 
 services:
   tsdproxy:
@@ -22,7 +23,8 @@ services:
     labels:
       tsdproxy.enable: "true"
       tsdproxy.name: "submind"          # -> https://submind.<tailnet>.ts.net
-      tsdproxy.container_port: "8443"
+      tsdproxy.port.1: "443/https:8443/http"
+      tsdproxy.port.2: "8444/https:8080/http"
     volumes:
       - submind-config:/config
       - ${PROJECTS_DIR:-./projects}/submind:/workspace
@@ -32,7 +34,8 @@ services:
     labels:
       tsdproxy.enable: "true"
       tsdproxy.name: "atlas"            # -> https://atlas.<tailnet>.ts.net
-      tsdproxy.container_port: "8443"
+      tsdproxy.port.1: "443/https:8443/http"
+      tsdproxy.port.2: "8444/https:8080/http"
     volumes:
       - atlas-config:/config
       - ${PROJECTS_DIR:-./projects}/atlas:/workspace
