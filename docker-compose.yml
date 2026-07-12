@@ -31,11 +31,10 @@ services:
 
   atlas:
     <<: *workspace
-    # Needs OS packages beyond the base image? Give the project a derived
-    # image (see "Project environments" in the README):
-    # build:
-    #   context: ${PROJECTS_DIR:-./projects}/atlas
-    #   dockerfile: .forjara/Dockerfile
+    # Needs OS packages beyond the base image? Point at the project's
+    # published derived image instead of the shared one (see "Project
+    # environments" in the README):
+    # image: ghcr.io/lludlow/atlas-forjara:latest
     labels:
       tsdproxy.enable: "true"
       tsdproxy.name: "atlas"            # -> https://atlas.<tailnet>.ts.net
