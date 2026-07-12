@@ -22,10 +22,11 @@ there, `✕` stops one, and Split shows two side by side. Closing a workspace
 stops its tabs and offers to remove its worktree; Git refuses to remove dirty
 worktrees, and branches are always kept.
 
-![Two live Forjara terminal sessions shown side by side](docs/images/5b399327-2026-07-12.png)
+![Split view of two live terminals with workspaces and tabs](docs/images/45c1cee0-2026-07-12.png)
 
-Open several agents as tabs, or split two live terminals side by side while
-each session keeps running in tmux.
+Above: the `main` workspace with two terminal tabs split side by side, and a
+`forjara/fix-api-tests` worktree workspace ready in the sidebar. Every session
+keeps running in tmux whether or not a browser is attached.
 
 ## What's in the image
 
@@ -54,10 +55,10 @@ cp config/tsdproxy.yaml.example config/tsdproxy.yaml   # paste your auth key
 docker compose up -d
 ```
 
-Open `https://submind.<tailnet>.ts.net:8444`, choose **New agent**, then select
+Open `https://submind.<tailnet>.ts.net:8444`, press **+** (or `⌘K`), then pick
 the project, agent, and whether it should get an isolated Git worktree.
 
-![New agent dialog with project, agent, and Git worktree options](docs/images/99085f3e-2026-07-12.png)
+![New agent dialog creating a session on a new Git worktree](docs/images/c88db4a7-2026-07-12.png)
 
 VS Code remains available at `https://submind.<tailnet>.ts.net`.
 
