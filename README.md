@@ -158,9 +158,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 USER node
 ```
 
-and its workspace block in `docker-compose.yml` uses `build` instead of the
-shared image (see the commented example there). Everything else — entrypoint,
-agents, code-server, `/config` persistence — is inherited.
+The project's CI builds and publishes it (e.g.
+`ghcr.io/lludlow/atlas-forjara:latest`), and its workspace block in
+`docker-compose.yml` overrides `image:` to that tag (see the commented
+example there) — the deploy host only ever pulls. Everything else —
+entrypoint, agents, code-server, `/config` persistence — is inherited.
+
+For local iteration on such a Dockerfile, build and tag it directly; never
+reuse the base image's tag or every other workspace inherits your changes:
+
+```bash
+docker build -t atlas-forjara:dev -f .forjara/Dockerfile .
+```
 
 ### Service sidecars
 
