@@ -32,7 +32,7 @@ keeps running in tmux whether or not a browser is attached.
 
 `ghcr.io/lludlow/forjara` contains the Forjara web service, the official
 [code-server release](https://github.com/coder/code-server/releases), tmux,
-ripgrep, and:
+ripgrep, [mise](https://mise.jdx.dev) for per-project language runtimes, and:
 
 | CLI | command |
 |---|---|
@@ -64,9 +64,11 @@ VS Code remains available at `https://submind.<tailnet>.ts.net`.
 
 ## Local QA
 
-Build the current checkout and mount it at `/workspace`:
+Copy the example compose file (the copy is gitignored — point its mounts at
+whatever you want to test), then build and run:
 
 ```bash
+cp docker-compose.local.example.yml docker-compose.local.yml
 docker compose -f docker-compose.local.yml up --build -d
 ```
 
@@ -119,6 +121,156 @@ Worktrees live under `<project>/.forjara/worktrees/` and are excluded through
 the repository's local `.git/info/exclude`. Closing a tab never deletes a
 worktree; closing a workspace asks first, runs `git worktree remove` without
 `--force` so uncommitted work survives, and never deletes the branch.
+
+## Project environments
+
+The base image stays small on purpose — projects bring their own toolchains.
+The repository owns its environment; Forjara owns the development experience.
+
+Most projects need nothing but the pulled image and a `mise.toml`. In order
+of how often you'll need them:
+
+| Your project needs | Use | Build required? |
+|---|---|---|
+| Node (any version) | already in the image, corepack included | no |
+| Go, Python, Rust, other runtimes | `mise.toml` in the repo | no |
+| OS packages (native libs, browsers) | small project Dockerfile | seconds, on the host |
+| PostgreSQL, Redis, etc. | Compose sidecar service | no |
+
+### Language runtimes via mise (the default — no build)
+
+[mise](https://mise.jdx.dev) is preinstalled in the image. Drop a `mise.toml`
+in the repo declaring what the project needs:
+
+```toml
+# a Go project
+[tools]
+go = "1.22"
+```
+
+```toml
+# a Python project using uv
+[tools]
+python = "3.12"
+uv = "latest"
+```
+
+Then, once, in any terminal tab of that project:
+
+```bash
+mise trust && mise install
+```
+
+That's it — `go`, `python`, `uv` now resolve in every terminal and agent
+session, pinned to the project's versions. Runtimes install under `/config`,
+so they survive container recreation; you never rebuild or restart anything.
+
+Node projects usually need no `mise.toml` at all: the image ships Node 22
+with corepack enabled, so a `"packageManager": "pnpm@10.x"` pin in
+package.json resolves by itself on first `pnpm` run.
+
+### OS packages: derive a project image
+
+mise installs language runtimes, not apt packages. If the project needs
+native libraries, database *client* tools, or Playwright's browser
+dependencies, give it a small Dockerfile — `.forjara/Dockerfile` in the repo:
+
+```dockerfile
+FROM ghcr.io/lludlow/forjara:latest
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      postgresql-client libvips-dev \
+ && rm -rf /var/lib/apt/lists/*
+USER node
+```
+
+and change its workspace block in `docker-compose.yml` from the shared image
+to:
+
+```yaml
+  atlas:
+    <<: *workspace
+    image: forjara-atlas        # own tag — never reuse the base image's
+    pull_policy: build          # build the layer; don't pull the base instead
+    build:
+      context: ${PROJECTS_DIR:-./projects}/atlas
+      dockerfile: .forjara/Dockerfile
+    ...
+```
+
+This is not "building Forjara" — it's an apt layer on top of the pulled base
+image, built in seconds by the same `docker compose up -d`. Entrypoint,
+agents, code-server, mise, and `/config` persistence are all inherited.
+
+### Service sidecars
+
+A project that needs PostgreSQL, Redis, or similar gets them as extra Compose
+services next to its workspace block — same network, reachable by service
+name:
+
+```yaml
+  atlas-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: dev
+    volumes:
+      - atlas-db-data:/var/lib/postgresql/data
+```
+
+Inside the atlas workspace, the database is simply `atlas-db:5432`. The host
+manages sidecars; the workspace never gets the Docker socket.
+
+### Already have a compose file? Add Forjara to it
+
+It also works the other way around: if your project already has a
+`docker-compose.yml` with its app and services, add one service to it instead
+of adopting Forjara's:
+
+```yaml
+# your existing docker-compose.yml
+services:
+  db:
+    image: postgres:17
+    # ...
+
+  forjara:
+    image: ghcr.io/lludlow/forjara:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"   # Forjara UI  -> http://localhost:8080
+      - "127.0.0.1:8443:8443"   # VS Code     -> http://localhost:8443
+    volumes:
+      - forjara-config:/config
+      - .:/workspace
+
+volumes:
+  forjara-config:
+```
+
+`docker compose up -d` and the workspace is live, on the same network as the
+rest of your stack — your existing `db` service is already its sidecar,
+reachable as `db:5432`. For tailnet access instead of localhost ports, drop
+the `ports:` block and add the tsdproxy labels from the main example. The
+same security notes apply: this container runs coding agents with your
+credentials, so don't publish its ports beyond localhost or your tailnet.
+
+### Running and previewing a web app
+
+Start the dev server in any terminal tab — tmux keeps it running when the
+browser disconnects. With the `vscode` service enabled, code-server proxies
+any local port over the existing tailnet hostname:
+
+```text
+https://atlas.<tailnet>.ts.net/proxy/5173/
+```
+
+Apps that can't tolerate the path prefix can use `/absproxy/<port>/` instead —
+see the [code-server proxy docs](https://github.com/coder/code-server/blob/main/docs/guide.md#accessing-web-services).
+
+Tests are the project's own commands — `go test ./...`, `pnpm test`, `pytest`
+— run in a tab like anything else. Forjara deliberately has no test-harness
+abstraction or language detection.
 
 ## Agent attention signals
 

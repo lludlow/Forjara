@@ -30,6 +30,7 @@ RUN zig build -Demit-lib-vt -Dtarget=wasm32-freestanding -Doptimize=ReleaseSmall
 FROM node:22-bookworm-slim
 
 ARG CODE_SERVER_VERSION=4.121.0
+ARG MISE_VERSION=v2026.7.5
 ARG TARGETARCH
 ARG GOOGLE_AGENT=antigravity
 
@@ -41,7 +42,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       | tar -xz -C /opt \
  && ln -s "/opt/code-server-${CODE_SERVER_VERSION}-linux-${TARGETARCH}/bin/code-server" /usr/local/bin/code-server \
  && npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai \
- && npm cache clean --force
+ && npm cache clean --force \
+ && corepack enable \
+ && curl -fsSL https://mise.run \
+      | MISE_VERSION="${MISE_VERSION}" MISE_INSTALL_PATH=/usr/local/bin/mise sh \
+ && echo 'eval "$(mise activate bash)"' >> /etc/bash.bashrc
 
 COPY install-google-agent.sh /tmp/
 RUN /tmp/install-google-agent.sh "$GOOGLE_AGENT" && rm /tmp/install-google-agent.sh
@@ -54,7 +59,10 @@ COPY --from=ghostty-wasm /src/zig-out/bin/ghostty-vt.wasm /opt/forjara/ghostty-v
 COPY third_party/ghostty/LICENSE /usr/share/licenses/ghostty/LICENSE
 COPY --chmod=755 start-forjara.sh /usr/local/bin/
 
-ENV HOME=/config \
+# mise shims first so non-interactive shells (agent tool calls) see
+# project runtimes; interactive shells use `mise activate` from bash.bashrc.
+ENV PATH=/config/.local/share/mise/shims:$PATH \
+    HOME=/config \
     FORJARA_SERVICES=vscode,web \
     FORJARA_WORKSPACE=/workspace \
     FORJARA_STATE_DIR=/config/.local/state/forjara \

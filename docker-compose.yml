@@ -31,6 +31,15 @@ services:
 
   atlas:
     <<: *workspace
+    # Needs OS packages beyond the base image? Give the project a derived
+    # image (see "Project environments" in the README). The tag override and
+    # pull_policy matter: without them Compose pulls the shared base instead
+    # of building, and a build would clobber the shared base tag.
+    # image: forjara-atlas
+    # pull_policy: build
+    # build:
+    #   context: ${PROJECTS_DIR:-./projects}/atlas
+    #   dockerfile: .forjara/Dockerfile
     labels:
       tsdproxy.enable: "true"
       tsdproxy.name: "atlas"            # -> https://atlas.<tailnet>.ts.net
@@ -39,6 +48,17 @@ services:
     volumes:
       - atlas-config:/config
       - ${PROJECTS_DIR:-./projects}/atlas:/workspace
+
+  # Needs Postgres/Redis/etc? Add a sidecar service — same Compose network,
+  # so the workspace reaches it by name ("atlas-db:5432"). Never mount the
+  # Docker socket into a workspace.
+  # atlas-db:
+  #   image: postgres:17
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_PASSWORD: dev
+  #   volumes:
+  #     - atlas-db-data:/var/lib/postgresql/data
 
 volumes:
   tsdproxy-data:
