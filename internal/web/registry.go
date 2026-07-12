@@ -41,6 +41,9 @@ type CreateSession struct {
 	Agent       string `json:"agent"`
 	NewWorktree bool   `json:"newWorktree"`
 	Branch      string `json:"branch"`
+	// Worktree opens the session in an existing worktree (another session's
+	// workspace) instead of the project root or a new worktree.
+	Worktree string `json:"worktree"`
 }
 
 type Registry struct {
@@ -163,6 +166,12 @@ func (r *Registry) Create(input CreateSession) (Session, error) {
 			return Session{}, fmt.Errorf("create worktree: %s", strings.TrimSpace(string(output)))
 		}
 		session.CWD, session.Worktree, session.Branch = worktree, worktree, branch
+	} else if worktree := strings.TrimSpace(input.Worktree); worktree != "" {
+		owner, ok := r.worktreeSession(worktree)
+		if !ok {
+			return Session{}, errors.New("unknown worktree")
+		}
+		session.CWD, session.Worktree, session.Branch = owner.CWD, owner.Worktree, owner.Branch
 	}
 	if err := startSession(session); err != nil {
 		if session.Worktree != "" {
@@ -219,6 +228,40 @@ func (r *Registry) UpdateActivity(id, activity string) error {
 	session.Activity = activity
 	r.sessions[id] = session
 	return r.saveLocked()
+}
+
+// RemoveWorktree deletes a worktree directory once no sessions use it. Git
+// itself refuses dirty or locked worktrees (no --force), so uncommitted work
+// survives; the branch is always kept.
+func (r *Registry) RemoveWorktree(project, worktree string) error {
+	projectPath, err := r.safePath(project)
+	if err != nil {
+		return err
+	}
+	worktreePath, err := r.safePath(worktree)
+	if err != nil {
+		return errors.New("invalid worktree path")
+	}
+	if _, busy := r.worktreeSession(worktreePath); busy {
+		return errors.New("worktree still has sessions")
+	}
+	if output, err := exec.Command("git", "-C", projectPath, "worktree", "remove", worktreePath).CombinedOutput(); err != nil {
+		return errors.New(strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+// worktreeSession finds a session already running in the given worktree, so a
+// new session can only join a worktree the registry knows about.
+func (r *Registry) worktreeSession(worktree string) (Session, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, session := range r.sessions {
+		if session.Worktree == worktree {
+			return session, true
+		}
+	}
+	return Session{}, false
 }
 
 func (r *Registry) safePath(path string) (string, error) {

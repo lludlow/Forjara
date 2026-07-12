@@ -15,6 +15,13 @@ open in tabs or a split. Terminal parsing, screen state, and keyboard encoding
 come from an official pinned `libghostty-vt.wasm` build; the server, renderer,
 and workspace UI are Forjara code.
 
+The sidebar lists **workspaces** — each project checkout plus one entry per
+worktree — with the agents running inside and an attention dot. The tab bar
+holds the terminals of the selected workspace: `+` (or `⌘K`) opens a new agent
+there, `✕` stops one, and Split shows two side by side. Closing a workspace
+stops its tabs and offers to remove its worktree; Git refuses to remove dirty
+worktrees, and branches are always kept.
+
 ![Two live Forjara terminal sessions shown side by side](docs/images/5b399327-2026-07-12.png)
 
 Open several agents as tabs, or split two live terminals side by side while
@@ -108,8 +115,9 @@ it is a directory of projects, immediate child directories appear separately;
 plain folders work too.
 
 Worktrees live under `<project>/.forjara/worktrees/` and are excluded through
-the repository's local `.git/info/exclude`. Closing a session does not delete
-its worktree.
+the repository's local `.git/info/exclude`. Closing a tab never deletes a
+worktree; closing a workspace asks first, runs `git worktree remove` without
+`--force` so uncommitted work survives, and never deletes the branch.
 
 ## Agent attention signals
 

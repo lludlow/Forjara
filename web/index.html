@@ -15,12 +15,20 @@
   <section class="workspace">
     <header>
       <button id="sidebar-toggle" title="Projects">☰</button>
-      <div id="context">Agent workspace</div>
+      <div id="context">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
+          <circle cx="4.5" cy="3.5" r="1.8"/><circle cx="4.5" cy="12.5" r="1.8"/><circle cx="11.5" cy="3.5" r="1.8"/>
+          <path d="M4.5 5.3v5.4M11.5 5.3c0 3.2-7 2.2-7 5.4"/>
+        </svg>
+        <div class="context-text">
+          <div id="context-title">Agent workspace</div>
+          <div id="context-sub"></div>
+        </div>
+      </div>
       <div class="actions">
         <span id="status">ready</span>
         <button id="split" title="Toggle split" disabled>Split</button>
         <button id="restart" title="Restart session" disabled>Restart</button>
-        <button id="close-session" class="danger" title="Close session" disabled>Close</button>
       </div>
     </header>
     <nav id="tabs" aria-label="Open sessions"></nav>
@@ -28,7 +36,7 @@
       <div class="empty-state">
         <h1>Your agents, one workspace.</h1>
         <p>Create a shell or coding agent from any mounted project.</p>
-        <button id="empty-new">New agent</button>
+        <button id="empty-new" class="primary">New agent</button>
       </div>
     </main>
   </section>
@@ -36,13 +44,14 @@
   <dialog id="session-dialog">
     <form id="session-form">
       <h2>New agent</h2>
+      <div id="target-note"></div>
       <label>Project<select name="project" required></select></label>
       <label>Name<input name="name" maxlength="80" placeholder="Fix API tests" required autofocus></label>
       <label>Agent<select name="agent"><option value="shell">Shell</option><option value="codex">Codex</option><option value="claude">Claude</option><option value="agy">Antigravity</option><option value="opencode">opencode</option></select></label>
       <label class="check"><input name="newWorktree" type="checkbox"> Create a Git worktree</label>
       <label id="branch-field" hidden>Branch<input name="branch" placeholder="forjara/fix-api-tests"></label>
       <output id="form-error"></output>
-      <div class="dialog-actions"><button type="button" id="cancel">Cancel</button><button type="submit">Create</button></div>
+      <div class="dialog-actions"><kbd>⌘K</kbd><button type="button" id="cancel">Cancel</button><button type="submit" class="primary">Create</button></div>
     </form>
   </dialog>
 

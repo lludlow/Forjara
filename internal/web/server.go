@@ -57,6 +57,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/sessions", s.createSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.deleteSession)
 	mux.HandleFunc("POST /api/sessions/{id}/restart", s.restartSession)
+	mux.HandleFunc("POST /api/worktrees/remove", s.removeWorktree)
 	mux.HandleFunc("GET /api/sessions/{id}/terminal", s.terminal)
 	mux.HandleFunc("GET /ghostty-vt.wasm", s.wasm)
 	mux.Handle("/", s.assets)
@@ -90,6 +91,23 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 	if err := s.registry.Delete(r.PathValue("id")); err != nil {
 		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	s.notify()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) removeWorktree(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Project  string `json:"project"`
+		Worktree string `json:"worktree"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10)).Decode(&input); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if err := s.registry.RemoveWorktree(input.Project, input.Worktree); err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
 	s.notify()
