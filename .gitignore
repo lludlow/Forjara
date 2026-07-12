@@ -2,3 +2,4 @@ config/tsdproxy.yaml
 .env
 projects/
 SPEC.md
+docker-compose.local.yml

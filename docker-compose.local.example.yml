@@ -1,3 +1,7 @@
+# Local QA stack — no tailnet needed.
+# Copy to docker-compose.local.yml (gitignored) and point the volume
+# mounts at whatever you want to test: this checkout, or a hub of projects
+# (one bind mount per project under /workspace).
 services:
   forjara:
     build: .
