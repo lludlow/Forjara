@@ -221,6 +221,40 @@ name:
 Inside the atlas workspace, the database is simply `atlas-db:5432`. The host
 manages sidecars; the workspace never gets the Docker socket.
 
+### Already have a compose file? Add Forjara to it
+
+It also works the other way around: if your project already has a
+`docker-compose.yml` with its app and services, add one service to it instead
+of adopting Forjara's:
+
+```yaml
+# your existing docker-compose.yml
+services:
+  db:
+    image: postgres:17
+    # ...
+
+  forjara:
+    image: ghcr.io/lludlow/forjara:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"   # Forjara UI  -> http://localhost:8080
+      - "127.0.0.1:8443:8443"   # VS Code     -> http://localhost:8443
+    volumes:
+      - forjara-config:/config
+      - .:/workspace
+
+volumes:
+  forjara-config:
+```
+
+`docker compose up -d` and the workspace is live, on the same network as the
+rest of your stack — your existing `db` service is already its sidecar,
+reachable as `db:5432`. For tailnet access instead of localhost ports, drop
+the `ports:` block and add the tsdproxy labels from the main example. The
+same security notes apply: this container runs coding agents with your
+credentials, so don't publish its ports beyond localhost or your tailnet.
+
 ### Running and previewing a web app
 
 Start the dev server in any terminal tab — tmux keeps it running when the
