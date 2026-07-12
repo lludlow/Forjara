@@ -15,6 +15,11 @@ open in tabs or a split. Terminal parsing, screen state, and keyboard encoding
 come from an official pinned `libghostty-vt.wasm` build; the server, renderer,
 and workspace UI are Forjara code.
 
+![Two live Forjara terminal sessions shown side by side](docs/images/5b399327-2026-07-12.png)
+
+Open several agents as tabs, or split two live terminals side by side while
+each session keeps running in tmux.
+
 ## What's in the image
 
 `ghcr.io/lludlow/forjara` contains the Forjara web service, the official
@@ -44,6 +49,8 @@ docker compose up -d
 
 Open `https://submind.<tailnet>.ts.net:8444`, choose **New agent**, then select
 the project, agent, and whether it should get an isolated Git worktree.
+
+![New agent dialog with project, agent, and Git worktree options](docs/images/99085f3e-2026-07-12.png)
 
 VS Code remains available at `https://submind.<tailnet>.ts.net`.
 
