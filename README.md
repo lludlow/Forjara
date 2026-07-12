@@ -32,7 +32,7 @@ keeps running in tmux whether or not a browser is attached.
 
 `ghcr.io/lludlow/forjara` contains the Forjara web service, the official
 [code-server release](https://github.com/coder/code-server/releases), tmux,
-ripgrep, and:
+ripgrep, [mise](https://mise.jdx.dev) for per-project language runtimes, and:
 
 | CLI | command |
 |---|---|
@@ -64,9 +64,11 @@ VS Code remains available at `https://submind.<tailnet>.ts.net`.
 
 ## Local QA
 
-Build the current checkout and mount it at `/workspace`:
+Copy the example compose file (the copy is gitignored — point its mounts at
+whatever you want to test), then build and run:
 
 ```bash
+cp docker-compose.local.example.yml docker-compose.local.yml
 docker compose -f docker-compose.local.yml up --build -d
 ```
 
@@ -119,6 +121,70 @@ Worktrees live under `<project>/.forjara/worktrees/` and are excluded through
 the repository's local `.git/info/exclude`. Closing a tab never deletes a
 worktree; closing a workspace asks first, runs `git worktree remove` without
 `--force` so uncommitted work survives, and never deletes the branch.
+
+## Project environments
+
+The base image stays small on purpose — projects bring their own toolchains.
+The repository owns its environment; Forjara owns the development experience.
+
+### Language runtimes via mise
+
+[mise](https://mise.jdx.dev) is preinstalled. A project that carries a
+`mise.toml` declares what it needs:
+
+```toml
+[tools]
+go = "1.22"
+python = "3.12"
+```
+
+Run `mise trust && mise install` once in a terminal tab and the runtimes are
+live — installed under `/config`, so they survive container recreation and are
+shared by every project in the container. corepack is enabled too, so a
+`packageManager` pin in package.json (pnpm, yarn) resolves on first use.
+
+### OS packages: derive a project image
+
+mise covers language runtimes, not native libraries, database clients, or
+browser-test dependencies. For those, the project supplies a small Dockerfile
+(e.g. `.forjara/Dockerfile`) on top of the base image:
+
+```dockerfile
+FROM ghcr.io/lludlow/forjara:latest
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      postgresql-client libvips-dev \
+ && rm -rf /var/lib/apt/lists/*
+USER node
+```
+
+and its workspace block in `docker-compose.yml` uses `build` instead of the
+shared image (see the commented example there). Everything else — entrypoint,
+agents, code-server, `/config` persistence — is inherited.
+
+### Service sidecars
+
+Projects that need PostgreSQL, Redis, or similar get them as extra Compose
+services next to their workspace block, reachable by service name on the
+shared network. The workspace never gets the Docker socket; the host manages
+the sidecars. See the commented `atlas-db` example in `docker-compose.yml`.
+
+### Running and previewing a web app
+
+Start the dev server in any terminal tab — tmux keeps it running when the
+browser disconnects. With the `vscode` service enabled, code-server proxies
+any local port over the existing tailnet hostname:
+
+```text
+https://atlas.<tailnet>.ts.net/proxy/5173/
+```
+
+Apps that can't tolerate the path prefix can use `/absproxy/<port>/` instead —
+see the [code-server proxy docs](https://github.com/coder/code-server/blob/main/docs/guide.md#accessing-web-services).
+
+Tests are the project's own commands — `go test ./...`, `pnpm test`, `pytest`
+— run in a tab like anything else. Forjara deliberately has no test-harness
+abstraction or language detection.
 
 ## Agent attention signals
 
